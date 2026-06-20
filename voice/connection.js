@@ -8,37 +8,54 @@ const {
 const { VOICE_CHANNEL_ID } = require("../config/channels");
 
 async function ensureConnection(client) {
+  const guildId = process.env.GUILD_ID;
+
+  let connection = getVoiceConnection(guildId);
+
+  if (connection && connection.state.status !== VoiceConnectionStatus.Destroyed) {
+    console.log("Reusing existing voice connection");
+    return connection;
+  }
+
   const channel = await client.channels.fetch(VOICE_CHANNEL_ID);
   if (!channel) throw new Error("Voice channel not found");
 
-  // جلب الاتصال بناءً على معرف السيرفر المستخرج تلقائياً من القناة الصوتية
-  let connection = getVoiceConnection(channel.guild.id);
-
-  if (connection && connection.state.status !== VoiceConnectionStatus.Destroyed) {
-    return connection;
-  }
+  console.log("Attempting to join voice channel:", VOICE_CHANNEL_ID);
 
   connection = joinVoiceChannel({
     channelId: VOICE_CHANNEL_ID,
     guildId: channel.guild.id,
-    adapterCreator: channel.guild.voiceAdapterCreator
+    adapterCreator: channel.guild.voiceAdapterCreator,
+    selfDeaf: false
+  });
+
+  connection.on("stateChange", (oldState, newState) => {
+    console.log(
+      `Voice connection state: ${oldState.status} -> ${newState.status}`
+    );
+  });
+
+  connection.on("error", (error) => {
+    console.log("Voice connection error event:", error.message);
   });
 
   try {
-    await entersState(connection, VoiceConnectionStatus.Ready, 15000);
+    await entersState(connection, VoiceConnectionStatus.Ready, 30000);
+    console.log("Voice connection is Ready");
   } catch (e) {
+    console.log("Voice connection failed to become Ready:", e.message);
     connection.destroy();
-    throw new Error("Failed to connect to voice channel");
+    throw new Error("Failed to connect to voice channel (timeout after 30s)");
   }
 
   return connection;
 }
 
 function disconnect() {
-  // فصل تلقائي بدون الحاجة لـ GUILD_ID في متغيرات البيئة
-  if (global.lastGuildId) {
-    const connection = getVoiceConnection(global.lastGuildId);
-    if (connection) connection.destroy();
+  const connection = getVoiceConnection(process.env.GUILD_ID);
+  if (connection) {
+    console.log("Disconnecting voice connection");
+    connection.destroy();
   }
 }
 
