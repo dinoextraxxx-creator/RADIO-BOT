@@ -4,22 +4,16 @@ GatewayIntentBits,
 Events 
 } = require("discord.js");
 
-const {
-joinVoiceChannel,
-createAudioPlayer,
-createAudioResource,
-AudioPlayerStatus,
-StreamType
-} = require("@discordjs/voice");
-
-const play = require("play-dl");
-
 const config = require("./config/channels");
 const settings = require("./config/settings");
 const stations = require("./config/stations");
 
 const radioPanel = require("./embeds/radioPanel");
 const stationMenu = require("./menus/stationSelect");
+
+// ===== VOICE SYSTEM =====
+const voicePlayer = require("./voice/player");
+const cooldownManager = require("./voice/cooldown");
 
 const client = new Client({
 intents: [
@@ -28,15 +22,11 @@ GatewayIntentBits.GuildVoiceStates
 ]
 });
 
-// ===== STATE =====
-let currentConnection = null;
-let currentPlayer = null;
-let cooldown = new Map();
-
-// ===== PANEL =====
+// ===== READY =====
 client.once(Events.ClientReady, async () => {
 console.log(`Logged in as ${client.user.tag}`);
 
+try {
 const channel = await client.channels.fetch(config.SELECTION_CHANNEL);
 
 const messages = await channel.messages.fetch({ limit: 10 });
@@ -50,53 +40,10 @@ components: [stationMenu()]
 
 console.log("📻 Radio panel sent");
 }
+} catch (err) {
+console.log("Panel error:", err);
+}
 });
-
-// ===== PLAY STREAM =====
-async function playStation(guild, station) {
-
-const voiceChannel = guild.channels.cache.get(config.RADIO_CHANNEL);
-
-if (!voiceChannel) return;
-
-// join or move bot
-if (!currentConnection) {
-currentConnection = joinVoiceChannel({
-channelId: voiceChannel.id,
-guildId: guild.id,
-adapterCreator: guild.voiceAdapterCreator
-});
-}
-
-let stream;
-
-if (station.type === "youtube") {
-stream = await play.stream(station.url);
-}
-
-else if (station.type === "radio") {
-stream = await play.stream(station.url);
-}
-
-else if (station.type === "playlist") {
-const random = station.list[Math.floor(Math.random() * station.list.length)];
-stream = await play.stream(random);
-}
-
-const player = createAudioPlayer();
-currentPlayer = player;
-
-const resource = createAudioResource(stream.stream, {
-inputType: stream.type ?? StreamType.Arbitrary
-});
-
-player.play(resource);
-currentConnection.subscribe(player);
-
-player.on(AudioPlayerStatus.Idle, () => {
-player.stop();
-});
-}
 
 // ===== INTERACTION =====
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -104,19 +51,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
 if (!interaction.isStringSelectMenu()) return;
 if (interaction.customId !== "radio_select") return;
 
-const userId = interaction.user.id;
-
 // ===== COOLDOWN =====
-const last = cooldown.get(userId);
+const ok = cooldownManager.checkCooldown(
+interaction.user.id,
+settings.COOLDOWN
+);
 
-if (last && Date.now() - last < settings.COOLDOWN * 1000) {
+if (!ok) {
 return interaction.reply({
 content: `⏳ انتظر ${settings.COOLDOWN} ثانية قبل تغيير المحطة`,
 ephemeral: true
 });
 }
-
-cooldown.set(userId, Date.now());
 
 // ===== FIND STATION =====
 const station = stations.find(s => s.id === interaction.values[0]);
@@ -128,13 +74,38 @@ ephemeral: true
 });
 }
 
+// ===== VOICE CHANNEL =====
+const voiceChannel = interaction.guild.channels.cache.get(config.RADIO_CHANNEL);
+
+if (!voiceChannel) {
+return interaction.reply({
+content: "❌ قناة الصوت غير موجودة",
+ephemeral: true
+});
+}
+
 // ===== PLAY =====
-await playStation(interaction.guild, station);
+try {
+await voicePlayer.playStream(
+interaction.guild,
+voiceChannel,
+station
+);
 
 await interaction.reply({
 content: `🎧 تم تشغيل: **${station.name}**`,
 ephemeral: true
 });
+
+} catch (err) {
+console.log("VOICE ERROR:", err);
+
+return interaction.reply({
+content: "❌ حدث خطأ أثناء تشغيل الصوت",
+ephemeral: true
+});
+}
+
 });
 
 client.login(process.env.DISCORD_TOKEN);
