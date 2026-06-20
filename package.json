@@ -1,13 +1,13 @@
 {
-"name": "radio-bot",
-"version": "1.0.0",
-"main": "index.js",
-"scripts": {
-"start": "node index.js"
-},
-"dependencies": {
-"discord.js": "^14.16.3",
-"@discordjs/voice": "^0.17.0",
-"play-dl": "^1.9.6"
-}
+  "name": "discord-radio-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "commonjs",
+  "dependencies": {
+    "discord.js": "^14.0.0",
+    "@discordjs/voice": "^0.16.1",
+    "ffmpeg-static": "^5.2.0",
+    "libsodium-wrappers": "^0.7.13",
+    "play-dl": "^1.9.7"
+  }
 }
