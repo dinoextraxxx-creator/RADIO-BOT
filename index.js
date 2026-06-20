@@ -1,7 +1,7 @@
-const {
-Client,
-GatewayIntentBits,
-Events
+const { 
+Client, 
+GatewayIntentBits, 
+Events 
 } = require("discord.js");
 
 const {
@@ -29,12 +29,11 @@ GatewayIntentBits.GuildVoiceStates
 });
 
 // ===== STATE =====
-let currentPlayer = null;
 let currentConnection = null;
-let currentStation = null;
+let currentPlayer = null;
 let cooldown = new Map();
 
-// ===== SEND PANEL =====
+// ===== PANEL =====
 client.once(Events.ClientReady, async () => {
 console.log(`Logged in as ${client.user.tag}`);
 
@@ -53,36 +52,21 @@ console.log("📻 Radio panel sent");
 }
 });
 
-// ===== MOVE USERS =====
-async function moveUsers(guild, channelId) {
-const channel = await guild.channels.fetch(channelId);
-
-guild.channels.cache.forEach(ch => {
-if (ch.type === 2 && ch.id !== channelId) {
-ch.members.forEach(member => {
-member.voice.setChannel(channel).catch(() => {});
-});
-}
-});
-}
-
 // ===== PLAY STREAM =====
-async function playStream(guild, station, voiceChannel) {
+async function playStation(guild, station) {
+
+const voiceChannel = guild.channels.cache.get(config.RADIO_CHANNEL);
 
 if (!voiceChannel) return;
 
-if (currentConnection) {
-try { currentConnection.destroy(); } catch {}
-}
-
+// join or move bot
+if (!currentConnection) {
 currentConnection = joinVoiceChannel({
 channelId: voiceChannel.id,
 guildId: guild.id,
 adapterCreator: guild.voiceAdapterCreator
 });
-
-const player = createAudioPlayer();
-currentPlayer = player;
+}
 
 let stream;
 
@@ -99,6 +83,9 @@ const random = station.list[Math.floor(Math.random() * station.list.length)];
 stream = await play.stream(random);
 }
 
+const player = createAudioPlayer();
+currentPlayer = player;
+
 const resource = createAudioResource(stream.stream, {
 inputType: stream.type ?? StreamType.Arbitrary
 });
@@ -109,10 +96,9 @@ currentConnection.subscribe(player);
 player.on(AudioPlayerStatus.Idle, () => {
 player.stop();
 });
-
 }
 
-// ===== INTERACTIONS =====
+// ===== INTERACTION =====
 client.on(Events.InteractionCreate, async (interaction) => {
 
 if (!interaction.isStringSelectMenu()) return;
@@ -122,31 +108,30 @@ const userId = interaction.user.id;
 
 // ===== COOLDOWN =====
 const last = cooldown.get(userId);
+
 if (last && Date.now() - last < settings.COOLDOWN * 1000) {
 return interaction.reply({
 content: `⏳ انتظر ${settings.COOLDOWN} ثانية قبل تغيير المحطة`,
 ephemeral: true
 });
 }
+
 cooldown.set(userId, Date.now());
 
 // ===== FIND STATION =====
 const station = stations.find(s => s.id === interaction.values[0]);
-if (!station) return interaction.reply({ content: "❌ محطة غير موجودة", ephemeral: true });
 
-// ===== GET GUILD / CHANNEL =====
-const guild = interaction.guild;
-const voiceChannel = guild.channels.cache.get(config.RADIO_CHANNEL);
-
-// ===== MOVE USERS =====
-await moveUsers(guild, config.RADIO_CHANNEL);
+if (!station) {
+return interaction.reply({
+content: "❌ المحطة غير موجودة",
+ephemeral: true
+});
+}
 
 // ===== PLAY =====
-await playStream(guild, station, voiceChannel);
+await playStation(interaction.guild, station);
 
-currentStation = station.id;
-
-interaction.reply({
+await interaction.reply({
 content: `🎧 تم تشغيل: **${station.name}**`,
 ephemeral: true
 });
