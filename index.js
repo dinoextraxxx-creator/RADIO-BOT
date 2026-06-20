@@ -1,150 +1,118 @@
-const { 
-Client, 
-GatewayIntentBits, 
-Events,
-EmbedBuilder
+const {
+  Client,
+  GatewayIntentBits,
+  Events
 } = require("discord.js");
 
-const config = require("./config/channels");
-const settings = require("./config/settings");
+const { SELECT_CHANNEL_ID, VOICE_CHANNEL_ID } = require("./config/channels");
 const stations = require("./config/stations");
-
-const radioPanel = require("./embeds/radioPanel");
-const stationMenu = require("./menus/stationSelect");
-
-// voice system
-const voicePlayer = require("./voice/player");
-const cooldownManager = require("./voice/cooldown");
+const { buildRadioEmbed } = require("./embeds/radioPanel");
+const { buildStationMenu } = require("./menus/stationSelect");
+const { playStation, getCurrentStation } = require("./voice/player");
+const { canChange, remainingSeconds, recordChange } = require("./voice/cooldown");
+const { disconnect } = require("./voice/connection");
 
 const client = new Client({
-intents: [
-GatewayIntentBits.Guilds,
-GatewayIntentBits.GuildVoiceStates
-]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages
+  ]
 });
 
-// ===== READY =====
+let panelMessage = null;
+
 client.once(Events.ClientReady, async () => {
-console.log(`Logged in as ${client.user.tag}`);
+  console.log("RADIO BOT READY");
 
-try {
-const channel = await client.channels.fetch(config.SELECTION_CHANNEL);
+  try {
+    const channel = await client.channels.fetch(SELECT_CHANNEL_ID);
+    const embed = buildRadioEmbed({});
+    const row = buildStationMenu();
 
-const messages = await channel.messages.fetch({ limit: 10 });
-const exists = messages.find(m => m.author.id === client.user.id);
-
-if (!exists) {
-await channel.send({
-embeds: [radioPanel()],
-components: [stationMenu()]
+    panelMessage = await channel.send({ embeds: [embed], components: [row] });
+  } catch (e) {
+    console.log("Panel init error:", e.message);
+  }
 });
 
-console.log("📻 Radio panel sent");
-}
-} catch (err) {
-console.log("Panel error:", err);
-}
-});
-
-// ===== INTERACTION =====
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isStringSelectMenu()) return;
+  if (interaction.customId !== "station_select") return;
 
-if (!interaction.isStringSelectMenu()) return;
-if (interaction.customId !== "radio_select") return;
+  try {
+    if (!canChange()) {
+      return interaction.reply({
+        ephemeral: true,
+        content: `⏳ يرجى الانتظار ${remainingSeconds()} ثانية قبل تغيير المحطة مجدداً.`
+      });
+    }
 
-// ===== COOLDOWN =====
-const ok = cooldownManager.checkCooldown(
-interaction.user.id,
-settings.COOLDOWN
-);
+    const stationKey = interaction.values[0];
+    const station = stations[stationKey];
 
-if (!ok) {
-return interaction.reply({
-embeds: [
-new EmbedBuilder()
-.setColor("Red")
-.setTitle("⏳ Cooldown")
-.setDescription(`انتظر ${settings.COOLDOWN} ثانية قبل تغيير المحطة`)
-],
-ephemeral: true
-});
-}
+    if (!station) {
+      return interaction.reply({ ephemeral: true, content: "محطة غير صالحة." });
+    }
 
-// ===== STATION =====
-const station = stations.find(s => s.id === interaction.values[0]);
+    await interaction.deferReply({ ephemeral: true });
 
-if (!station) {
-return interaction.reply({
-embeds: [
-new EmbedBuilder()
-.setColor("Red")
-.setTitle("❌ خطأ")
-.setDescription("المحطة غير موجودة")
-],
-ephemeral: true
-});
-}
+    // نقل المستخدم للقناة الصوتية
+    try {
+      const member = await interaction.guild.members.fetch(interaction.user.id);
+      if (member.voice.channelId !== VOICE_CHANNEL_ID) {
+        await member.voice.setChannel(VOICE_CHANNEL_ID);
+      }
+    } catch (e) {
+      console.log("Move member error:", e.message);
+    }
 
-// ===== VOICE CHANNEL =====
-const voiceChannel = interaction.guild.channels.cache.get(config.RADIO_CHANNEL);
+    const textChannel = await client.channels.fetch(SELECT_CHANNEL_ID);
 
-if (!voiceChannel) {
-return interaction.reply({
-embeds: [
-new EmbedBuilder()
-.setColor("Red")
-.setTitle("❌ خطأ")
-.setDescription("قناة الصوت غير موجودة")
-],
-ephemeral: true
-});
-}
+    await playStation(client, stationKey, station, textChannel);
 
-// ===== PLAY =====
-try {
-await voicePlayer.playStream(
-interaction.guild,
-voiceChannel,
-station
-);
+    recordChange(stationKey, interaction.user.id);
 
-// ===== SUCCESS EMBED =====
-return interaction.reply({
-embeds: [
-new EmbedBuilder()
-.setColor("#00FF99")
-.setTitle("🎧 Radio Now Playing")
-.setDescription(`
-📡 المحطة:
-**${station.name}**
+    const embed = buildRadioEmbed({
+      currentStationKey: stationKey,
+      changedBy: interaction.user.id,
+      status: "🟢 يعمل"
+    });
 
-👤 تم التغيير بواسطة:
-${interaction.user}
+    if (panelMessage) {
+      await panelMessage.edit({ embeds: [embed] });
+    }
 
-📻 القناة:
-<#${config.RADIO_CHANNEL}>
-
-⏳ الكولداون: ${settings.COOLDOWN}s
-`)
-.setFooter({ text: "Radio System • Live Streaming" })
-],
-ephemeral: true
+    await interaction.editReply({
+      content: "✅ تم تشغيل المحطة، انضم للقناة الصوتية للاستماع."
+    });
+  } catch (e) {
+    console.log("Interaction error:", e.message);
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ ephemeral: true, content: "حدث خطأ، حاول مجدداً." });
+      } else {
+        await interaction.editReply({ content: "حدث خطأ، حاول مجدداً." });
+      }
+    } catch (err) {
+      console.log("Failed to send error reply:", err.message);
+    }
+  }
 });
 
-} catch (err) {
-console.log("VOICE ERROR:", err);
+// إيقاف البوت عند فراغ القناة الصوتية
+client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+  const channel = oldState.channel;
+  if (!channel || channel.id !== VOICE_CHANNEL_ID) return;
 
-return interaction.reply({
-embeds: [
-new EmbedBuilder()
-.setColor("Red")
-.setTitle("❌ فشل التشغيل")
-.setDescription("حدث خطأ أثناء تشغيل الصوت")
-],
-ephemeral: true
-});
-}
+  const membersLeft = channel.members.filter((m) => !m.user.bot).size;
 
+  if (membersLeft === 0) {
+    console.log("Voice channel empty, disconnecting...");
+    disconnect();
+  }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+process.on("unhandledRejection", (e) => console.log("Unhandled:", e));
+
+client.login(process.env.TOKEN);
