@@ -2,7 +2,7 @@ const {
   Client,
   GatewayIntentBits,
   Events,
-  MessageFlags // تم إضافة هذا السطر الجديد هنا ليتعامل مع الردود المخفية بشكل صحيح
+  MessageFlags
 } = require("discord.js");
 
 const { SELECT_CHANNEL_ID, VOICE_CHANNEL_ID } = require("./config/channels");
@@ -24,7 +24,7 @@ const client = new Client({
 let panelMessage = null;
 
 client.once(Events.ClientReady, async () => {
-  console.log("RADIO BOT READY");
+  console.log("🟢 RADIO BOT READY");
 
   try {
     const channel = await client.channels.fetch(SELECT_CHANNEL_ID);
@@ -41,6 +41,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isStringSelectMenu()) return;
   if (interaction.customId !== "station_select") return;
 
+  // 1) تأكيد التفاعل فوراً لعدم حدوث خطأ "Interaction Failed" في ديسكورد
   try {
     if (!canChange()) {
       return interaction.reply({
@@ -56,19 +57,30 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({ flags: [MessageFlags.Ephemeral], content: "محطة غير صالحة." });
     }
 
+    // إعلام ديسكورد أن البوت يفكر ويقوم بمعالجة الطلب الآن
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-    // 1) نقل المستخدم فوراً للقناة الصوتية
+    // 2) جلب العضو ونقله فوراً للقناة الصوتية المستهدفة
     try {
       const member = await interaction.guild.members.fetch(interaction.user.id);
+      
+      // التحقق مما إذا كان العضو متواجد في أي قناة صوتية أصلاً ليتمكن البوت من نقله
+      if (!member.voice.channelId) {
+        return interaction.editReply({
+          content: "⚠️ يجب أن تكون متصلاً بأي قناة صوتية أولاً حتى يتمكن البوت من نقلك تلقائياً."
+        });
+      }
+
+      // إذا كان في قناة مختلفة، يتم سحبه فوراً إلى قناة الراديو
       if (member.voice.channelId !== VOICE_CHANNEL_ID) {
         await member.voice.setChannel(VOICE_CHANNEL_ID);
+        console.log(`📌 تم نقل العضو ${interaction.user.tag} إلى القناة الصوتية المحددة.`);
       }
     } catch (e) {
-      console.log("Move member error:", e.message);
+      console.log("❌ فشل نقل العضو (تأكد من إعطاء البوت صلاحية Move Members):", e.message);
     }
 
-    // 2) البوت يدخل ويبدأ التشغيل
+    // 3) البوت يدخل ويبدأ تشغيل الصوت
     await playStation(client, stationKey, station);
 
     recordChange(stationKey, interaction.user.id);
@@ -84,8 +96,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     await interaction.editReply({
-      content: "✅ تم تشغيل المحطة، انضم للقناة الصوتية للاستماع."
+      content: "✅ تم تشغيل المحطة بنجاح، وتم نقلك للاستماع!"
     });
+
   } catch (e) {
     console.log("Interaction error:", e.message);
     try {
