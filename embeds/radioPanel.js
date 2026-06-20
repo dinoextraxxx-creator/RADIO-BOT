@@ -3,7 +3,7 @@ const { EmbedBuilder } = require("discord.js");
 module.exports = () => {
 return new EmbedBuilder()
 .setColor("#FFD700")
-.setTitle("📻 Radio Control Panel")
+.setTitle("📻 RADIO SYSTEM")
 .setDescription(`
 🎧 اختر محطة للاستماع المباشر
 
@@ -11,7 +11,12 @@ return new EmbedBuilder()
 📻 القرآن الكريم  
 🎙 بودكاست عشوائي  
 
-⏳ تغيير المحطة متاح كل 60 ثانية
+──────────────────
+
+🔊 الحالة:
+🟢 النظام جاهز للبث
+
+⏳ الكولداون: 60 ثانية
 `)
-.setFooter({ text: "Radio System • Live Broadcast" });
+.setFooter({ text: "Radio System • Live Audio Streaming" });
 };
