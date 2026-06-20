@@ -1,53 +1,62 @@
 const {
-createAudioPlayer,
-createAudioResource,
-AudioPlayerStatus,
-StreamType
+  createAudioPlayer,
+  createAudioResource,
+  AudioPlayerStatus,
+  StreamType
 } = require("@discordjs/voice");
-
 const play = require("play-dl");
 
-const { getConnection } = require("./connection");
+const { ensureConnection } = require("./connection");
 
-let player = null;
+let player = createAudioPlayer();
+let currentStationKey = null;
 
-async function playStream(guild, channel, station) {
-
-const connection = getConnection(guild, channel);
-
-if (player) {
-try { player.stop(); } catch {}
+function getCurrentStation() {
+  return currentStationKey;
 }
 
-player = createAudioPlayer();
+async function playStation(client, stationKey, station, textChannel) {
+  try {
+    const connection = await ensureConnection(client);
 
-let stream;
+    let videoUrl = station.url;
 
-// ===== SOURCES =====
-if (station.type === "youtube") {
-stream = await play.stream(station.url);
+    if (station.type === "youtube_random") {
+      videoUrl = station.urls[Math.floor(Math.random() * station.urls.length)];
+    }
+
+    const stream = await play.stream(videoUrl);
+
+    const resource = createAudioResource(stream.stream, {
+      inputType: stream.type
+    });
+
+    player.play(resource);
+    connection.subscribe(player);
+
+    currentStationKey = stationKey;
+  } catch (e) {
+    console.log("Player error:", e.message);
+    if (textChannel) {
+      try {
+        await textChannel.send(
+          `⚠️ تعذّر تشغيل المحطة، حاول مجدداً بعد قليل. (${e.message})`
+        );
+      } catch (err) {
+        console.log("Failed to send error message:", err.message);
+      }
+    }
+    throw e;
+  }
 }
 
-else if (station.type === "radio") {
-stream = await play.stream(station.url);
-}
-
-else if (station.type === "playlist") {
-const random = station.list[Math.floor(Math.random() * station.list.length)];
-stream = await play.stream(random);
-}
-
-const resource = createAudioResource(stream.stream, {
-inputType: stream.type ?? StreamType.Arbitrary
-});
-
-player.play(resource);
-connection.subscribe(player);
-
-// auto restart
 player.on(AudioPlayerStatus.Idle, () => {
-player.stop();
+  // الصوت توقف (نهاية الفيديو/انقطاع) - يمكن إضافة منطق إعادة تشغيل هنا لاحقاً
+  console.log("Player went idle");
 });
-}
 
-module.exports = { playStream };
+player.on("error", (error) => {
+  console.log("Audio player error:", error.message);
+});
+
+module.exports = { playStation, getCurrentStation, player };
