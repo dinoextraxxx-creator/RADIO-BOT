@@ -1,7 +1,8 @@
 const { 
 Client, 
 GatewayIntentBits, 
-Events 
+Events,
+EmbedBuilder
 } = require("discord.js");
 
 const config = require("./config/channels");
@@ -11,7 +12,7 @@ const stations = require("./config/stations");
 const radioPanel = require("./embeds/radioPanel");
 const stationMenu = require("./menus/stationSelect");
 
-// ===== VOICE SYSTEM =====
+// voice system
 const voicePlayer = require("./voice/player");
 const cooldownManager = require("./voice/cooldown");
 
@@ -59,17 +60,27 @@ settings.COOLDOWN
 
 if (!ok) {
 return interaction.reply({
-content: `⏳ انتظر ${settings.COOLDOWN} ثانية قبل تغيير المحطة`,
+embeds: [
+new EmbedBuilder()
+.setColor("Red")
+.setTitle("⏳ Cooldown")
+.setDescription(`انتظر ${settings.COOLDOWN} ثانية قبل تغيير المحطة`)
+],
 ephemeral: true
 });
 }
 
-// ===== FIND STATION =====
+// ===== STATION =====
 const station = stations.find(s => s.id === interaction.values[0]);
 
 if (!station) {
 return interaction.reply({
-content: "❌ المحطة غير موجودة",
+embeds: [
+new EmbedBuilder()
+.setColor("Red")
+.setTitle("❌ خطأ")
+.setDescription("المحطة غير موجودة")
+],
 ephemeral: true
 });
 }
@@ -79,7 +90,12 @@ const voiceChannel = interaction.guild.channels.cache.get(config.RADIO_CHANNEL);
 
 if (!voiceChannel) {
 return interaction.reply({
-content: "❌ قناة الصوت غير موجودة",
+embeds: [
+new EmbedBuilder()
+.setColor("Red")
+.setTitle("❌ خطأ")
+.setDescription("قناة الصوت غير موجودة")
+],
 ephemeral: true
 });
 }
@@ -92,8 +108,26 @@ voiceChannel,
 station
 );
 
-await interaction.reply({
-content: `🎧 تم تشغيل: **${station.name}**`,
+// ===== SUCCESS EMBED =====
+return interaction.reply({
+embeds: [
+new EmbedBuilder()
+.setColor("#00FF99")
+.setTitle("🎧 Radio Now Playing")
+.setDescription(`
+📡 المحطة:
+**${station.name}**
+
+👤 تم التغيير بواسطة:
+${interaction.user}
+
+📻 القناة:
+<#${config.RADIO_CHANNEL}>
+
+⏳ الكولداون: ${settings.COOLDOWN}s
+`)
+.setFooter({ text: "Radio System • Live Streaming" })
+],
 ephemeral: true
 });
 
@@ -101,7 +135,12 @@ ephemeral: true
 console.log("VOICE ERROR:", err);
 
 return interaction.reply({
-content: "❌ حدث خطأ أثناء تشغيل الصوت",
+embeds: [
+new EmbedBuilder()
+.setColor("Red")
+.setTitle("❌ فشل التشغيل")
+.setDescription("حدث خطأ أثناء تشغيل الصوت")
+],
 ephemeral: true
 });
 }
