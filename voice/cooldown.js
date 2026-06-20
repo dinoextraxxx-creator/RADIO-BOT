@@ -1,46 +1,50 @@
-const fs = require("fs");
-const path = require("path");
+const {
+  createAudioPlayer,
+  createAudioResource,
+  AudioPlayerStatus
+} = require("@discordjs/voice");
+const play = require("play-dl");
 
-const STATE_FILE = path.join(__dirname, "../data/state.json");
-const { COOLDOWN_MS } = require("../config/settings");
+const { ensureConnection } = require("./connection");
 
-function loadState() {
-  try {
-    return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
-  } catch (e) {
-    return { currentStation: null, lastChange: 0, changedBy: null };
+let player = createAudioPlayer();
+let currentStationKey = null;
+
+function getCurrentStation() {
+  return currentStationKey;
+}
+
+async function playStation(client, stationKey, station) {
+  const connection = await ensureConnection(client);
+
+  let videoUrl = station.url;
+
+  if (station.type === "youtube_random") {
+    videoUrl = station.urls[Math.floor(Math.random() * station.urls.length)];
   }
-}
 
-function saveState(state) {
-  try {
-    fs.writeFileSync(STATE_FILE, JSON.stringify(state));
-  } catch (e) {
-    console.log("State save error:", e.message);
-  }
-}
+  console.log("Fetching stream for:", videoUrl);
 
-function canChange() {
-  const state = loadState();
-  return Date.now() - state.lastChange >= COOLDOWN_MS;
-}
+  const stream = await play.stream(videoUrl);
 
-function remainingSeconds() {
-  const state = loadState();
-  const remaining = COOLDOWN_MS - (Date.now() - state.lastChange);
-  return Math.ceil(remaining / 1000);
-}
-
-function recordChange(stationKey, userId) {
-  saveState({
-    currentStation: stationKey,
-    lastChange: Date.now(),
-    changedBy: userId
+  const resource = createAudioResource(stream.stream, {
+    inputType: stream.type
   });
+
+  player.play(resource);
+  connection.subscribe(player);
+
+  currentStationKey = stationKey;
+
+  console.log("Now playing station:", stationKey);
 }
 
-function getState() {
-  return loadState();
-}
+player.on(AudioPlayerStatus.Idle, () => {
+  console.log("Player went idle");
+});
 
-module.exports = { canChange, remainingSeconds, recordChange, getState };
+player.on("error", (error) => {
+  console.log("Audio player error:", error.message);
+});
+
+module.exports = { playStation, getCurrentStation, player };
