@@ -44,11 +44,10 @@ inputType: stream.type ?? StreamType.Arbitrary
 player.play(resource);
 connection.subscribe(player);
 
+// auto restart
 player.on(AudioPlayerStatus.Idle, () => {
 player.stop();
 });
 }
 
-module.exports = {
-playStream
-};
+module.exports = { playStream };
