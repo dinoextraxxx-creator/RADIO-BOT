@@ -1,1 +1,5 @@
-
+{
+  "currentStation": null,
+  "lastChange": 0,
+  "changedBy": null
+}
