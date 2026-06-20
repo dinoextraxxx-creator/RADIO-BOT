@@ -1,13 +1,20 @@
 const {
   createAudioPlayer,
   createAudioResource,
-  AudioPlayerStatus
+  AudioPlayerStatus,
+  NoSubscriberBehavior
 } = require("@discordjs/voice");
 const play = require("play-dl");
 
 const { ensureConnection } = require("./connection");
 
-let player = createAudioPlayer();
+// تحسين أداء اللاعب لضمان عدم التوقف المفاجئ عند ضعف الاتصال
+let player = createAudioPlayer({
+  behaviors: {
+    noSubscriber: NoSubscriberBehavior.Play
+  }
+});
+
 let currentStationKey = null;
 
 function getCurrentStation() {
@@ -16,6 +23,9 @@ function getCurrentStation() {
 
 async function playStation(client, stationKey, station) {
   const connection = await ensureConnection(client);
+  
+  // حفظ آيدي السيرفر لاستخدامه لاحقاً في الفصل التلقائي
+  global.lastGuildId = connection.joinConfig.guildId;
 
   let videoUrl = station.url;
 
@@ -23,11 +33,18 @@ async function playStation(client, stationKey, station) {
     videoUrl = station.urls[Math.floor(Math.random() * station.urls.length)];
   }
 
-  const stream = await play.stream(videoUrl);
+  // تحسين طريقة فتح البث للتوافق مع البث المباشر والراديو المستمر
+  const stream = await play.stream(videoUrl, {
+    discordPlayerCompatible: true
+  });
 
   const resource = createAudioResource(stream.stream, {
-    inputType: stream.type
+    inputType: stream.type,
+    inlineVolume: true
   });
+
+  // تعيين حجم الصوت الافتراضي كـ 100% لتجنب انخفاضه تلقائياً
+  resource.volume.setVolume(1.0);
 
   player.play(resource);
   connection.subscribe(player);
