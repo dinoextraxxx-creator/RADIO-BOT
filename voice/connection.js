@@ -15,14 +15,4 @@ adapterCreator: guild.voiceAdapterCreator
 return connection;
 }
 
-function destroyConnection() {
-if (connection) {
-try { connection.destroy(); } catch {}
-connection = null;
-}
-}
-
-module.exports = {
-getConnection,
-destroyConnection
-};
+module.exports = { getConnection };
