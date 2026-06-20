@@ -1,26 +1,32 @@
-module.exports = [
-{
-id: "aljazeera",
-name: "📺 الجزيرة مباشر",
-type: "youtube",
-url: "https://www.youtube.com/watch?v=gCNeDWCI0vo"
-},
-
-{
-id: "quran",
-name: "📻 القرآن الكريم",
-type: "radio",
-url: "https://stream.radiojar.com/8s5u5tpdtwzuv"
-},
-
-{
-id: "podcast",
-name: "🎙 بودكاست عشوائي",
-type: "playlist",
-list: [
-"https://podcast-stream-1.mp3",
-"https://podcast-stream-2.mp3",
-"https://podcast-stream-3.mp3"
-]
-}
-];
+module.exports = {
+  aljazeera: {
+    label: "بث قناة الجزيرة",
+    emoji: "📰",
+    type: "youtube",
+    url: "https://www.youtube.com/live/bNyUyrR0PHo"
+  },
+  bein: {
+    label: "بث قناة بي إن سبورت",
+    emoji: "🏟️",
+    type: "youtube",
+    url: "https://www.youtube.com/live/2lJZPT6OljI"
+  },
+  quran: {
+    label: "تسجيل قرآني",
+    emoji: "🕋",
+    type: "youtube",
+    url: "https://youtu.be/MM1fRp-cQsI"
+  },
+  podcast: {
+    label: "بودكاست",
+    emoji: "📻",
+    type: "youtube_random",
+    urls: [
+      "https://youtu.be/TGUsvlJIXXw",
+      "https://youtu.be/Pfj4niPP0DY",
+      "https://youtu.be/ZWraKKwNfpE",
+      "https://youtu.be/lkX6mcCD3CI",
+      "https://youtu.be/agFMbV32JIc"
+    ]
+  }
+};
