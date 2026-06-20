@@ -1,15 +1,18 @@
-const cooldown = new Map();
+let lastChange = 0;
 
-function checkCooldown(userId, time) {
-
-const last = cooldown.get(userId);
-
-if (last && Date.now() - last < time * 1000) {
-return false;
+function canChange() {
+  const { COOLDOWN_MS } = require("../config/settings");
+  return Date.now() - lastChange >= COOLDOWN_MS;
 }
 
-cooldown.set(userId, Date.now());
-return true;
+function remainingSeconds() {
+  const { COOLDOWN_MS } = require("../config/settings");
+  const remaining = COOLDOWN_MS - (Date.now() - lastChange);
+  return Math.ceil(remaining / 1000);
 }
 
-module.exports = { checkCooldown };
+function recordChange() {
+  lastChange = Date.now();
+}
+
+module.exports = { canChange, remainingSeconds, recordChange };
