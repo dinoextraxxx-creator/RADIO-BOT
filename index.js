@@ -1,7 +1,8 @@
 const {
   Client,
   GatewayIntentBits,
-  Events
+  Events,
+  MessageFlags // تم إضافة هذا السطر الجديد هنا ليتعامل مع الردود المخفية بشكل صحيح
 } = require("discord.js");
 
 const { SELECT_CHANNEL_ID, VOICE_CHANNEL_ID } = require("./config/channels");
@@ -43,7 +44,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (!canChange()) {
       return interaction.reply({
-        ephemeral: true,
+        flags: [MessageFlags.Ephemeral],
         content: `⏳ يرجى الانتظار ${remainingSeconds()} ثانية قبل تغيير المحطة مجدداً.`
       });
     }
@@ -52,10 +53,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const station = stations[stationKey];
 
     if (!station) {
-      return interaction.reply({ ephemeral: true, content: "محطة غير صالحة." });
+      return interaction.reply({ flags: [MessageFlags.Ephemeral], content: "محطة غير صالحة." });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     // 1) نقل المستخدم فوراً للقناة الصوتية
     try {
@@ -90,7 +91,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          ephemeral: true,
+          flags: [MessageFlags.Ephemeral],
           content: `⚠️ تعذّر تشغيل المحطة، حاول مجدداً بعد قليل. (${e.message})`
         });
       } else {
