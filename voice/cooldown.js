@@ -1,6 +1,7 @@
 const cooldown = new Map();
 
 function checkCooldown(userId, time) {
+
 const last = cooldown.get(userId);
 
 if (last && Date.now() - last < time * 1000) {
@@ -11,6 +12,4 @@ cooldown.set(userId, Date.now());
 return true;
 }
 
-module.exports = {
-checkCooldown
-};
+module.exports = { checkCooldown };
