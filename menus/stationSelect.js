@@ -1,4 +1,9 @@
-const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder } = require("discord.js");
+const { 
+StringSelectMenuBuilder,
+StringSelectMenuOptionBuilder,
+ActionRowBuilder
+} = require("discord.js");
+
 const stations = require("../config/stations");
 
 module.exports = () => {
