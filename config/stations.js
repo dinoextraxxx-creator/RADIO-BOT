@@ -10,7 +10,7 @@ url: "https://www.youtube.com/watch?v=gCNeDWCI0vo"
 id: "quran",
 name: "📻 القرآن الكريم",
 type: "radio",
-url: "https://Quran-radio-stream-url-here"
+url: "https://stream.radiojar.com/8s5u5tpdtwzuv"
 },
 
 {
