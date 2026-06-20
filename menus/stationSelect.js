@@ -1,24 +1,19 @@
-const { 
-StringSelectMenuBuilder,
-StringSelectMenuOptionBuilder,
-ActionRowBuilder
-} = require("discord.js");
-
+const { StringSelectMenuBuilder, ActionRowBuilder } = require("discord.js");
 const stations = require("../config/stations");
 
-module.exports = () => {
+function buildStationMenu() {
+  const options = Object.entries(stations).map(([key, s]) => ({
+    label: s.label,
+    value: key,
+    emoji: s.emoji
+  }));
 
-const menu = new StringSelectMenuBuilder()
-.setCustomId("radio_select")
-.setPlaceholder("🎧 اختر محطة الراديو");
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId("station_select")
+    .setPlaceholder("اختر محطة...")
+    .addOptions(options);
 
-stations.forEach(station => {
-menu.addOptions(
-new StringSelectMenuOptionBuilder()
-.setLabel(station.name)
-.setValue(station.id)
-);
-});
+  return new ActionRowBuilder().addComponents(menu);
+}
 
-return new ActionRowBuilder().addComponents(menu);
-};
+module.exports = { buildStationMenu };
