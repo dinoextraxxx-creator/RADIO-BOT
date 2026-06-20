@@ -8,17 +8,23 @@ function buildRadioEmbed({ currentStationKey, changedBy, status }) {
   const embed = new EmbedBuilder()
     .setColor("#1ABC9C")
     .setAuthor({
-      name: "محطة \"يونكو\" للراديو 🔘",
+      name: 'محطة "يونكو" للراديو 🔘',
       iconURL: ICON_URL
     })
-    .setTitle("**اخـــتــر مــــحـــطـــة الاســــتمـــاع التـــي تــفـضــلـها 🎧 :**")
+    .setTitle(
+      "**اخـــتــر مــــحـــطـــة الاســــتمـــاع التـــي تــفـضــلـها 🎧 :**"
+    )
     .setDescription(
       station
-        ? `**المحطة الحالية:** ${station.emoji} ${station.label}\n**الحالة:** ${status || "🟢 يعمل"}\n**آخر تغيير بواسطة:** ${changedBy ? `<@${changedBy}>` : "—"}`
+        ? `**المحطة الحالية:** ${station.emoji} ${station.label}\n**الحالة:** ${
+            status || "🟢 يعمل"
+          }\n**آخر تغيير بواسطة:** ${
+            changedBy ? `<@${changedBy}>` : "—"
+          }`
         : "لا توجد محطة قيد التشغيل حالياً."
     )
     .setFooter({
-      text: "محطة \"يونكو\" للراديو 🔘",
+      text: 'محطة "يونكو" للراديو 🔘',
       iconURL: ICON_URL
     })
     .setTimestamp();
