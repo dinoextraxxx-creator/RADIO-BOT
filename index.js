@@ -8,7 +8,7 @@ const { SELECT_CHANNEL_ID, VOICE_CHANNEL_ID } = require("./config/channels");
 const stations = require("./config/stations");
 const { buildRadioEmbed } = require("./embeds/radioPanel");
 const { buildStationMenu } = require("./menus/stationSelect");
-const { playStation, getCurrentStation } = require("./voice/player");
+const { playStation } = require("./voice/player");
 const { canChange, remainingSeconds, recordChange } = require("./voice/cooldown");
 const { disconnect } = require("./voice/connection");
 
@@ -57,7 +57,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await interaction.deferReply({ ephemeral: true });
 
-    // نقل المستخدم للقناة الصوتية
+    // 1) نقل المستخدم فوراً للقناة الصوتية
     try {
       const member = await interaction.guild.members.fetch(interaction.user.id);
       if (member.voice.channelId !== VOICE_CHANNEL_ID) {
@@ -67,9 +67,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       console.log("Move member error:", e.message);
     }
 
-    const textChannel = await client.channels.fetch(SELECT_CHANNEL_ID);
-
-    await playStation(client, stationKey, station, textChannel);
+    // 2) البوت يدخل ويبدأ التشغيل
+    await playStation(client, stationKey, station);
 
     recordChange(stationKey, interaction.user.id);
 
@@ -90,9 +89,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.log("Interaction error:", e.message);
     try {
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({ ephemeral: true, content: "حدث خطأ، حاول مجدداً." });
+        await interaction.reply({
+          ephemeral: true,
+          content: `⚠️ تعذّر تشغيل المحطة، حاول مجدداً بعد قليل. (${e.message})`
+        });
       } else {
-        await interaction.editReply({ content: "حدث خطأ، حاول مجدداً." });
+        await interaction.editReply({
+          content: `⚠️ تعذّر تشغيل المحطة، حاول مجدداً بعد قليل. (${e.message})`
+        });
       }
     } catch (err) {
       console.log("Failed to send error reply:", err.message);
@@ -100,8 +104,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// إيقاف البوت عند فراغ القناة الصوتية
-client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+client.on(Events.VoiceStateUpdate, (oldState) => {
   const channel = oldState.channel;
   if (!channel || channel.id !== VOICE_CHANNEL_ID) return;
 
