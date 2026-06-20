@@ -8,14 +8,15 @@ const {
 const { VOICE_CHANNEL_ID } = require("../config/channels");
 
 async function ensureConnection(client) {
-  let connection = getVoiceConnection(process.env.GUILD_ID);
+  const channel = await client.channels.fetch(VOICE_CHANNEL_ID);
+  if (!channel) throw new Error("Voice channel not found");
+
+  // جلب الاتصال بناءً على معرف السيرفر المستخرج تلقائياً من القناة الصوتية
+  let connection = getVoiceConnection(channel.guild.id);
 
   if (connection && connection.state.status !== VoiceConnectionStatus.Destroyed) {
     return connection;
   }
-
-  const channel = await client.channels.fetch(VOICE_CHANNEL_ID);
-  if (!channel) throw new Error("Voice channel not found");
 
   connection = joinVoiceChannel({
     channelId: VOICE_CHANNEL_ID,
@@ -34,8 +35,11 @@ async function ensureConnection(client) {
 }
 
 function disconnect() {
-  const connection = getVoiceConnection(process.env.GUILD_ID);
-  if (connection) connection.destroy();
+  // فصل تلقائي بدون الحاجة لـ GUILD_ID في متغيرات البيئة
+  if (global.lastGuildId) {
+    const connection = getVoiceConnection(global.lastGuildId);
+    if (connection) connection.destroy();
+  }
 }
 
 module.exports = { ensureConnection, disconnect };
