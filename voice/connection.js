@@ -7,6 +7,9 @@ const {
 
 const { VOICE_CHANNEL_ID } = require("../config/channels");
 
+let lastReadyAt = 0;
+const GRACE_PERIOD_MS = 25 * 1000; // 25 ثانية سماح بعد الاتصال
+
 async function ensureConnection(client) {
   const guildId = process.env.GUILD_ID;
 
@@ -30,9 +33,7 @@ async function ensureConnection(client) {
   });
 
   connection.on("stateChange", (oldState, newState) => {
-    console.log(
-      `Voice connection state: ${oldState.status} -> ${newState.status}`
-    );
+    console.log(`Voice connection state: ${oldState.status} -> ${newState.status}`);
   });
 
   connection.on("error", (error) => {
@@ -42,6 +43,7 @@ async function ensureConnection(client) {
   try {
     await entersState(connection, VoiceConnectionStatus.Ready, 30000);
     console.log("Voice connection is Ready");
+    lastReadyAt = Date.now();
   } catch (e) {
     console.log("Voice connection failed to become Ready:", e.message);
     connection.destroy();
@@ -59,4 +61,8 @@ function disconnect() {
   }
 }
 
-module.exports = { ensureConnection, disconnect };
+function isInGracePeriod() {
+  return Date.now() - lastReadyAt < GRACE_PERIOD_MS;
+}
+
+module.exports = { ensureConnection, disconnect, isInGracePeriod };
