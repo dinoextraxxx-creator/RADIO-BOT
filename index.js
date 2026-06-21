@@ -10,7 +10,7 @@ const {
   remainingSeconds,
   recordChange
 } = require("./voice/cooldown");
-const { disconnect } = require("./voice/connection");
+const { disconnect, isInGracePeriod } = require("./voice/connection");
 
 const client = new Client({
   intents: [
@@ -69,9 +69,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await interaction.deferReply({ ephemeral: true });
 
+    // نحاول النقل فقط إذا كان العضو متصلاً بصوت أصلاً (تجنب خطأ مضمون)
     try {
       const member = await interaction.guild.members.fetch(interaction.user.id);
-      if (member.voice.channelId !== VOICE_CHANNEL_ID) {
+      if (member.voice.channel && member.voice.channelId !== VOICE_CHANNEL_ID) {
         await member.voice.setChannel(VOICE_CHANNEL_ID);
       }
     } catch (e) {
@@ -93,7 +94,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     await interaction.editReply({
-      content: "✅ تم تشغيل المحطة، انضم للقناة الصوتية للاستماع."
+      content: "✅ تم تشغيل المحطة! انضم يدوياً للقناة الصوتية للاستماع 🎧"
     });
   } catch (e) {
     console.log("Interaction error:", e.message);
@@ -118,6 +119,11 @@ client.on(Events.VoiceStateUpdate, (oldState) => {
   const channel = oldState.channel;
   if (!channel || channel.id !== VOICE_CHANNEL_ID) return;
 
+  if (isInGracePeriod()) {
+    console.log("In grace period, skipping empty-channel disconnect check");
+    return;
+  }
+
   const membersLeft = channel.members.filter((m) => !m.user.bot).size;
 
   if (membersLeft === 0) {
@@ -129,4 +135,3 @@ client.on(Events.VoiceStateUpdate, (oldState) => {
 process.on("unhandledRejection", (e) => console.log("Unhandled:", e));
 
 client.login(process.env.TOKEN);
-      
